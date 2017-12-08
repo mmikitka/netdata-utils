@@ -5,7 +5,7 @@ import json
 import os
 import urllib
 
-def dump(netdata_url):
+def dump(args):
     output_dir = '/tmp/netdata-utils'
     base_url = netdata_url + '/api/v1'
     charts_url = base_url + '/charts'
@@ -51,16 +51,44 @@ def dump(netdata_url):
 
     return 0
 
+def _print_metrics(path):
+    with open(path, 'r') as fp:
+        data = json.load(fp)
+        labels = sorted(data['result']['labels'])
+        for label in labels:
+            print("\t\t{0}".format(label))
+
+def metrics(args):
+    for base_path in sorted(args.paths):
+        print(base_path)
+        for item in sorted(os.listdir(base_path)):
+            if item == 'host.json':
+                continue
+
+            item_path = os.path.join(base_path, item)
+            if os.path.isfile(item_path):
+                print("\t{0}".format(item_path))
+                _print_metrics(item_path)
+
+    return 0
+
 parser = argparse.ArgumentParser(description='A set of netdata utilities')
-parser.add_argument('action', choices=['dump'],
-                    help='List of possible actions')
-parser.add_argument('urls', nargs='+',
-                    help='netdata API URL e.g., http://localhost:19999')
+subparsers = parser.add_subparsers(help='Sub-command help')
+
+# Sub-command: dump
+dump_parser = subparsers.add_parser('dump', description='Dump all data from a netdata host')
+dump_parser.add_argument('urls', nargs='+',
+                         help='netdata API URL e.g., http://localhost:19999')
+dump_parser.set_defaults(func=dump)
+
+# Sub-command: metrics
+metrics_parser = subparsers.add_parser('metrics',
+                                       description='All metrics in a data collection')
+metrics_parser.add_argument('paths', nargs='+',
+                         help='Directory containing results from the dump sub-command')
+metrics_parser.set_defaults(func=metrics)
+
 args = parser.parse_args()
+args.func(args)
 
-rc = 0
-if args.action == 'dump':
-    for url in args.urls:
-        rc = dump(url)
-
-exit(rc)
+exit(0)
