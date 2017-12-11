@@ -6,7 +6,10 @@ import os
 import urllib
 
 def dump(args):
-    output_dir = '/tmp/netdata-utils'
+    for url in args.urls:
+        _dump_url(url, args.output_dir)
+
+def _dump_url(netdata_url, output_dir):
     base_url = netdata_url + '/api/v1'
     charts_url = base_url + '/charts'
 
@@ -77,6 +80,8 @@ subparsers = parser.add_subparsers(help='Sub-command help')
 
 # Sub-command: dump
 dump_parser = subparsers.add_parser('dump', description='Dump all data from a netdata host')
+dump_parser.add_argument('-o', '--output-dir', default='/tmp/netdata-utils',
+                         help='output directory')
 dump_parser.add_argument('urls', nargs='+',
                          help='netdata API URL e.g., http://localhost:19999')
 dump_parser.set_defaults(func=dump)
