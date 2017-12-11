@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 main() {
   apps_groups_path="$1"
@@ -10,16 +10,23 @@ main() {
   cp $apps_groups_path $orig
   while [ 1 ]; do
     cp $orig $new
-    active=$(ps ax | grep "$process" | grep -vE "grep|/bin/sh" | awk '{print $5}')
+    active=$(ps ax | grep "$process" | grep -vE "grep|pid-sync\.sh" | awk '{print $1}')
     if [ $? -eq 0 ]; then
       for p in $active; do
-        echo "${p}: ${p}" >> $new
+        fname=/proc/${p}/stat
+        if [ -e "$fname" ]; then
+          pname=$(cat /proc/${p}/stat | awk '{print $2}')
+          if [[ "$pname" =~ \(([^\)]+)\) ]]; then
+            echo "${BASH_REMATCH[1]}: ${BASH_REMATCH[1]}" >> $new
+          fi
+        fi
       done
 
       diff $cur $new
       if [ $? -ne 0 ]; then
         echo "`date`: Diff detected"
         cp $new $cur
+        service netdata restart
       fi
     fi
 
