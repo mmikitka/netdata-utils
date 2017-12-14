@@ -7,15 +7,15 @@ import urllib
 
 def dump(args):
     for url in args.urls:
-        _dump_url(url, args.output_dir)
+        _dump_url(url, args)
 
-def _dump_url(netdata_url, output_dir):
+def _dump_url(netdata_url, args):
     base_url = netdata_url + '/api/v1'
     charts_url = base_url + '/charts'
 
     try:
-        if not os.access(output_dir, os.W_OK):
-            os.makedirs(output_dir)
+        if not os.access(args.output_dir, os.W_OK):
+            os.makedirs(args.output_dir)
     except OSError as e:
         print(e)
         return 1
@@ -24,7 +24,7 @@ def _dump_url(netdata_url, output_dir):
         charts = json.load(urllib.urlopen(charts_url))
 
         hostname = charts['hostname']
-        host_dir = os.path.join(output_dir, hostname)
+        host_dir = os.path.join(args.output_dir, hostname)
         try:
             if not os.access(host_dir, os.W_OK):
                 os.makedirs(host_dir)
@@ -41,8 +41,14 @@ def _dump_url(netdata_url, output_dir):
 
         for chart_id in charts['charts']:
             print("Retrieving {0} from {1}".format(chart_id, netdata_url))
-            data_url = "{0}/data?chart={1}&format=json&options=seconds,jsonwrap".\
-                format(base_url, chart_id)
+
+            data_url = "{0}/data?chart={1}".format(base_url, chart_id)
+            if args.after:
+                data_url += "&after={0}".format(args.after)
+            if args.before:
+                data_url += "&before={0}".format(args.before)
+            data_url += "&format=json&options=seconds,jsonwrap"
+
             chart_data = json.load(urllib.urlopen(data_url))
             chart_file = os.path.join(host_dir, chart_id)
             with open(chart_file , 'w') as fp:
@@ -80,8 +86,16 @@ subparsers = parser.add_subparsers(help='Sub-command help')
 
 # Sub-command: dump
 dump_parser = subparsers.add_parser('dump', description='Dump all data from a netdata host')
-dump_parser.add_argument('-o', '--output-dir', default='/tmp/netdata-utils',
+dump_parser.add_argument('-o', '--output-dir', default='dump',
                          help='output directory')
+dump_parser.add_argument('-a', '--after',
+                         help='Absolute timestamp or a relative number \
+                            in seconds specifying the starting point of \
+                            the dataset')
+dump_parser.add_argument('-b', '--before',
+                         help='Absolute timestamp or a relative number \
+                            in seconds specifying the ending point of \
+                            the dataset')
 dump_parser.add_argument('urls', nargs='+',
                          help='netdata API URL e.g., http://localhost:19999')
 dump_parser.set_defaults(func=dump)
