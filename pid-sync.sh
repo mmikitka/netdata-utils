@@ -26,7 +26,6 @@ main() {
       if [ $? -ne 0 ]; then
         echo "`date`: Diff detected"
         cp $new $cur
-        service netdata restart
       fi
     fi
 
