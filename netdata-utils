@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import urllib
 
 def dump(args):
@@ -31,53 +32,36 @@ def _dump_url(netdata_url, args):
         except OSError as e:
             raise e
 
-        host_info = {}
-        for key in charts.keys():
-            if key != 'charts':
-                host_info[key] = charts[key]
-        host_info_file = os.path.join(host_dir, 'host.json')
-        with open(host_info_file, 'w') as fp:
-            json.dump(host_info, fp)
+        charts_info_file = os.path.join(host_dir, 'charts.json')
+        with open(charts_info_file, 'w') as fp:
+            json.dump(charts, fp)
 
+        chart_pat = re.compile(args.chart) if args.chart else None
         for chart_id in charts['charts']:
-            print("Retrieving {0} from {1}".format(chart_id, netdata_url))
+            if (not chart_pat
+                    or chart_pat.match(chart_id)):
+                print("Retrieving {0} from {1}".format(chart_id, netdata_url))
 
-            data_url = "{0}/data?chart={1}".format(base_url, chart_id)
-            if args.after:
-                data_url += "&after={0}".format(args.after)
-            if args.before:
-                data_url += "&before={0}".format(args.before)
-            data_url += "&format=json&options=seconds,jsonwrap"
+                data_url = "{0}/data?chart={1}".format(base_url, chart_id)
+                if args.after:
+                    data_url += "&after={0}".format(args.after)
+                if args.before:
+                    data_url += "&before={0}".format(args.before)
+                data_url += "&format=json&options=seconds,jsonwrap"
 
-            chart_data = json.load(urllib.urlopen(data_url))
-            chart_file = os.path.join(host_dir, chart_id)
-            with open(chart_file , 'w') as fp:
-                json.dump(chart_data, fp)
+                chart_data = json.load(urllib.urlopen(data_url))
+                chart_file = os.path.join(host_dir, chart_id)
+                with open(chart_file , 'w') as fp:
+                    if args.output_format == 'json':
+                        json.dump(chart_data, fp)
+                    elif args.output_format == 'csv':
+                        fp.write(",".join(chart_data['result']['labels']) + "\n")
+                        for row in chart_data['result']['data']:
+                            fp.write(",".join(str(x) for x in row) + "\n")
 
     except IOError as e:
         print(e)
         return 1
-
-    return 0
-
-def _print_metrics(path):
-    with open(path, 'r') as fp:
-        data = json.load(fp)
-        labels = sorted(data['result']['labels'])
-        for label in labels:
-            print("\t\t{0}".format(label))
-
-def metrics(args):
-    for base_path in sorted(args.paths):
-        print(base_path)
-        for item in sorted(os.listdir(base_path)):
-            if item == 'host.json':
-                continue
-
-            item_path = os.path.join(base_path, item)
-            if os.path.isfile(item_path):
-                print("\t{0}".format(item_path))
-                _print_metrics(item_path)
 
     return 0
 
@@ -96,16 +80,15 @@ dump_parser.add_argument('-b', '--before',
                          help='Absolute timestamp or a relative number \
                             in seconds specifying the ending point of \
                             the dataset')
+dump_parser.add_argument('-c', '--chart',
+                         help='Chart ID regular expression')
+dump_parser.add_argument('-f', '--output-format',
+                         choices=['json', 'csv'],
+                         default='json',
+                         help='Data output format')
 dump_parser.add_argument('urls', nargs='+',
                          help='netdata API URL e.g., http://localhost:19999')
 dump_parser.set_defaults(func=dump)
-
-# Sub-command: metrics
-metrics_parser = subparsers.add_parser('metrics',
-                                       description='All metrics in a data collection')
-metrics_parser.add_argument('paths', nargs='+',
-                         help='Directory containing results from the dump sub-command')
-metrics_parser.set_defaults(func=metrics)
 
 args = parser.parse_args()
 args.func(args)
