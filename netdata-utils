@@ -1,6 +1,7 @@
 #!/usr/bin/env python2
 
 import argparse
+from datetime import datetime
 import json
 import os
 import re
@@ -65,6 +66,32 @@ def _dump_url(netdata_url, args):
 
     return 0
 
+def show_charts(args):
+    for url in args.urls:
+        _show_charts_url(url, args)
+
+def _show_charts_url(netdata_url, args):
+    base_url = netdata_url + '/api/v1'
+    charts_url = base_url + '/charts'
+    try:
+        charts = json.load(urllib.urlopen(charts_url))
+        for chart in charts['charts']:
+            chart_data = charts['charts'][chart]
+            print(chart)
+            for key in ['first_entry', 'last_entry']:
+                print("  {0} = {1}".format(
+                    key,
+                    datetime.fromtimestamp(chart_data[key])))
+            for key in ['update_every', 'units']:
+                print("  {0} = {1}".format(key, chart_data[key]))
+            print("")
+
+    except IOError as e:
+        print(e)
+        return 1
+
+    return 0
+
 parser = argparse.ArgumentParser(description='A set of netdata utilities')
 subparsers = parser.add_subparsers(help='Sub-command help')
 
@@ -89,6 +116,18 @@ dump_parser.add_argument('-f', '--output-format',
 dump_parser.add_argument('urls', nargs='+',
                          help='netdata API URL e.g., http://localhost:19999')
 dump_parser.set_defaults(func=dump)
+
+# Sub-command: show
+show_parser = subparsers.add_parser('show')
+show_parser_sub = show_parser.add_subparsers(help='Sub-command help')
+
+# Sub-command: show charts
+show_charts_parser = show_parser_sub.add_parser(
+    'charts',
+    description='Show chart metadata')
+show_charts_parser.add_argument('urls', nargs='+',
+                                help='netdata API URL e.g., http://localhost:19999')
+show_charts_parser.set_defaults(func=show_charts)
 
 args = parser.parse_args()
 args.func(args)
