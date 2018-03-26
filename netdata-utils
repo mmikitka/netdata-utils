@@ -66,6 +66,67 @@ def _dump_url(netdata_url, args):
 
     return 0
 
+def report(args):
+    for url in args.urls:
+        _report_url(url, args)
+
+def _report_url(netdata_url, args):
+    PROFILES = {
+        'USE': [
+            {'chart': 'system.cpu', 'dimension': []},
+            {'chart': 'system.ram', 'dimension': []},
+            {'chart': 'mem.kernel', 'dimension': []},
+            {'chart': 'mem.slab', 'dimension': []},
+            {'chart': 'mem.pgfaults', 'dimension': []},
+            {'chart': 'system.swap', 'dimension': []},
+            {'chart': 'system.ipv4', 'dimension': []},
+            {'chart': 'system.ipv6', 'dimension': []},
+            {'chart': 'ipv4.tcpsock', 'dimension': []},
+            {'chart': 'ipv4.packets', 'dimension': []},
+            {'chart': 'ipv4.errors', 'dimension': []},
+            {'chart': 'ipv4.mcast', 'dimension': []},
+            {'chart': 'ipv4.mcastpkts', 'dimension': []},
+            {'chart': 'system.io', 'dimension': []},
+            {'chart': 'disk.sda', 'dimension': []},
+            {'chart': 'disk_ops.sda', 'dimension': []},
+            {'chart': 'disk_backlog.sda', 'dimension': []},
+            {'chart': 'disk_util.sda', 'dimension': []},
+        ]
+    }
+
+    base_url = netdata_url + '/api/v1'
+    for group in ['average', 'max']:
+        print("{0},".format(group))
+        for chart_config in PROFILES[args.profile]:
+            chart_id = chart_config['chart']
+            dimension = chart_config['dimension']
+            data_url = "{0}/data?chart={1}".format(base_url, chart_id)
+
+            if len(dimension):
+                data_url += "&dimension={0}".format(",".join(dimension))
+            else:
+                data_url += "&dimension="
+
+            if args.after:
+                data_url += "&after={0}".format(args.after)
+            if args.before:
+                data_url += "&before={0}".format(args.before)
+            data_url += "&group={0}".format(group)
+            data_url += "&points=-1&format=json&options=seconds,jsonwrap"
+
+            chart_data = json.load(urllib.urlopen(data_url))
+            chart_metadata = _get_chart_metadata(netdata_url, chart_id)
+            units = chart_metadata['units']
+            if units == 'percentage':
+                units = '%'
+            pairs = zip(chart_data['result']['labels'],
+                        chart_data['result']['data'][0])
+
+            for label, value in pairs:
+                if label != 'time':
+                    print("{0}.{1}.{2} ({3}),{4}".format(
+                        chart_id, label, group, units, value))
+
 def show_charts(args):
     for url in args.urls:
         _show_charts_url(url, args)
@@ -92,6 +153,10 @@ def _show_charts_url(netdata_url, args):
 
     return 0
 
+def _get_chart_metadata(netdata_url, chart_id):
+    chart_url = '{0}/api/v1/chart?chart={1}'.format(netdata_url, chart_id)
+    return json.load(urllib.urlopen(chart_url))
+
 parser = argparse.ArgumentParser(description='A set of netdata utilities')
 subparsers = parser.add_subparsers(help='Sub-command help')
 
@@ -116,6 +181,26 @@ dump_parser.add_argument('-f', '--output-format',
 dump_parser.add_argument('urls', nargs='+',
                          help='netdata API URL e.g., http://localhost:19999')
 dump_parser.set_defaults(func=dump)
+
+# Sub-command: report
+report_parser = subparsers.add_parser('report',
+                                      description='Generate a pre-defined \
+                                        report on a Netdata host')
+report_parser.add_argument('-a', '--after',
+                         help='Absolute timestamp or a relative number \
+                            in seconds specifying the starting point of \
+                            the report')
+report_parser.add_argument('-b', '--before',
+                         help='Absolute timestamp or a relative number \
+                            in seconds specifying the ending point of \
+                            the report')
+report_parser.add_argument('-p', '--profile',
+                         choices=['USE'],
+                         default='USE',
+                         help='Report profile')
+report_parser.add_argument('urls', nargs='+',
+                         help='netdata API URL e.g., http://localhost:19999')
+report_parser.set_defaults(func=report)
 
 # Sub-command: show
 show_parser = subparsers.add_parser('show')
