@@ -40,6 +40,25 @@ optional arguments:
 usage: netdata-utils show charts [-h] urls [urls ...]
 ```
 
+### Resource utilization reports
+```
+Generate a pre-defined report on a Netdata host
+
+positional arguments:
+  urls                  netdata API URL e.g., http://localhost:19999
+
+optional arguments:
+  -h, --help            show this help message and exit
+  -a AFTER, --after AFTER
+                        Absolute timestamp or a relative number in seconds
+                        specifying the starting point of the report
+  -b BEFORE, --before BEFORE
+                        Absolute timestamp or a relative number in seconds
+                        specifying the ending point of the report
+  -p {USE}, --profile {USE}
+                        Report profile
+```
+
 ### Chart metadata
 ```
 Show chart metadata
