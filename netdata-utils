@@ -114,18 +114,21 @@ def _report_url(netdata_url, args):
             data_url += "&group={0}".format(group)
             data_url += "&points=-1&format=json&options=seconds,jsonwrap"
 
-            chart_data = json.load(urllib.urlopen(data_url))
-            chart_metadata = _get_chart_metadata(netdata_url, chart_id)
-            units = chart_metadata['units']
-            if units == 'percentage':
-                units = '%'
-            pairs = zip(chart_data['result']['labels'],
-                        chart_data['result']['data'][0])
+            try:
+                chart_data = json.load(urllib.urlopen(data_url))
+                chart_metadata = _get_chart_metadata(netdata_url, chart_id)
+                units = chart_metadata['units']
+                if units == 'percentage':
+                    units = '%'
+                pairs = zip(chart_data['result']['labels'],
+                            chart_data['result']['data'][0])
 
-            for label, value in pairs:
-                if label != 'time':
-                    print("{0}.{1}.{2} ({3}),{4}".format(
-                        chart_id, label, group, units, value))
+                for label, value in pairs:
+                    if label != 'time':
+                        print("{0}.{1}.{2} ({3}),{4}".format(
+                            chart_id, label, group, units, value))
+            except ValueError:
+                print("Chart ID {0} does not exist".format(chart_id))
 
 def show_charts(args):
     for url in args.urls:
